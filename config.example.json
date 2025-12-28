@@ -1,0 +1,48 @@
+{
+  "_comment": "EXAMPLE ONLY - Do not add real credentials here!",
+  "_note": "This file shows the JSON config format. For production, use environment variables.",
+  "_see": ".env.example for the recommended configuration method",
+  
+  "providers": [
+    {
+      "name": "MilkyWay@Home",
+      "project_url": "https://milkyway.cs.rpi.edu/milkyway/",
+      "api_endpoint": "https://milkyway.cs.rpi.edu/milkyway",
+      "user_id": "YOUR_USER_ID",
+      "auth_key": "YOUR_AUTHENTICATOR_FROM_ENV",
+      "credit_multiplier": 1.0,
+      "verification_required": false,
+      "min_cpu_time": 600.0
+    },
+    {
+      "name": "Rosetta@Home",
+      "project_url": "https://boinc.bakerlab.org/rosetta",
+      "api_endpoint": "https://boinc.bakerlab.org/rosetta",
+      "user_id": "YOUR_USER_ID",
+      "auth_key": "YOUR_AUTHENTICATOR_FROM_ENV",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    },
+    {
+      "name": "WCG",
+      "project_url": "https://www.worldcommunitygrid.org/",
+      "api_endpoint": "https://www.worldcommunitygrid.org/worldcommunitygrid",
+      "user_id": "YOUR_USER_ID",
+      "auth_key": "YOUR_AUTHENTICATOR_FROM_ENV",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    },
+    {
+      "name": "GPUGRID",
+      "project_url": "https://www.gpugrid.net/",
+      "api_endpoint": "https://www.gpugrid.net/gpugrid",
+      "user_id": "YOUR_USER_ID", 
+      "auth_key": "YOUR_AUTHENTICATOR_FROM_ENV",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    }
+  ]
+}

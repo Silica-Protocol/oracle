@@ -1,0 +1,50 @@
+{
+  "providers": [
+    {
+      "name": "MilkyWay@Home",
+      "project_url": "https://milkyway.cs.rpi.edu/milkyway/",
+      "api_endpoint": "https://milkyway.cs.rpi.edu/milkyway",
+      "user_id": "8028822",
+      "auth_key": "31f66d97a0573eee1e9fcf1464d9e3dd",
+      "download_url": "https://github.com/Milkyway-at-home/milkywayathome_client/archive/refs/tags/nbody_1.93.tar.gz",
+      "credit_multiplier": 1.0,
+      "verification_required": false,
+      "min_cpu_time": 600.0
+    },
+    {
+      "name": "Rosetta@Home",
+      "project_url": "https://boinc.bakerlab.org/rosetta",
+      "api_endpoint": "https://boinc.bakerlab.org/rosetta",
+      "user_id": "2429203",
+      "auth_key": "5e34c794bccb7b209239775c67683adb",
+      "download_url": "https://boinc.bakerlab.org/rosetta/download/rosetta_4.20_x86_64-pc-linux-gnu",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    },
+    {
+      "name": "WCG",
+      "project_url": "https://scheduler.worldcommunitygrid.org/boinc/",
+      "api_endpoint": "https://www.worldcommunitygrid.org/worldcommunitygrid",
+      "user_id": "2429203",
+      "auth_key": "54e069af1ad019adf6ee53c87432cd3b",
+      "download_url": "https://www.worldcommunitygrid.org/worldcommunitygrid/download/wcg4.20_x86_64-pc-linux-gnu",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    },
+    {
+      "name": "GPUGRID",
+      "project_url": "https://gpugrid.net/gpugrid/",
+      "api_endpoint": "https://www.gpugrid.net/gpugrid",
+      "scheduler": "https://gpugrid.net/gpugrid_cgi/cgi",
+      "user_id": "2429203",
+      "auth_key": "54e069af1ad019adf6ee53c87432cd3b",
+      "download_url": "https://www.gpugrid.net/gpugrid/download/gpugrid4.20_x86_64-pc-linux-gnu",
+      "credit_multiplier": 1.0,
+      "verification_required": true,
+      "min_cpu_time": 1800.0
+    }
+    
+  ]
+}
