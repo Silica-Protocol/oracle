@@ -10,10 +10,13 @@ use tracing_subscriber::fmt::format::FmtSpan;
 
 use silica_oracle::{
     BoincClient, PoUWAggregator, PoUWOracle, ProjectConfig, ProjectManager,
+    ReputationManager, ReputationThresholds,
+    ObfuscationConfig, TaskObfuscator, ResultTracker,
     api::http::HttpSecurityConfig,
     api::{
         MinerApiState, OracleApiState, SecureHttpClient, SecurityMiddlewareConfig, SecurityState,
-        WebApiState, auth_middleware, body_size_middleware, create_miner_router,
+        WebApiState, NuwApiState, ReputationApiState, create_nuw_router, create_reputation_router,
+        auth_middleware, body_size_middleware, create_miner_router,
         create_oracle_router, create_web_router, security_headers_middleware,
     },
     config::{CredentialManager, PoiConfig, sanitize_for_logging},
@@ -47,6 +50,27 @@ async fn main() -> Result<()> {
     let aggregator = Arc::new(RwLock::new(PoUWAggregator::new()));
     let boinc_client = Arc::new(RwLock::new(BoincClient::new()));
     let oracle = Arc::new(RwLock::new(PoUWOracle::new()));
+    
+    // Initialize reputation system (anti-gaming)
+    let reputation_thresholds = config.reputation.to_thresholds();
+    let reputation_manager = Arc::new(RwLock::new(ReputationManager::new(reputation_thresholds)));
+    info!(
+        "Reputation system initialized: temp_ban_threshold={}, perm_ban_threshold={}, slash_decay_days={}",
+        config.reputation.temp_ban_threshold,
+        config.reputation.perm_ban_threshold,
+        config.reputation.slash_decay_days
+    );
+    
+    // Initialize task obfuscator (anti-gaming)
+    let obfuscation_config = ObfuscationConfig::from_secret(
+        config.reputation.obfuscation_secret.as_bytes()
+    );
+    let task_obfuscator = Arc::new(RwLock::new(TaskObfuscator::new(obfuscation_config)));
+    info!("Task obfuscation initialized for anti-gaming");
+    
+    // Initialize result tracker (anti-gaming)
+    let result_tracker = Arc::new(RwLock::new(ResultTracker::new()));
+    info!("Result tracker initialized for replay detection");
 
     // Initialize credential manager and validate credentials
     let mut credential_manager = CredentialManager::new();
@@ -111,6 +135,9 @@ async fn main() -> Result<()> {
                 xml_validator: SecureXmlValidator::new_boinc_safe(),
                 config: config.clone(),
                 active_project,
+                task_obfuscator: task_obfuscator.clone(),
+                reputation_manager: reputation_manager.clone(),
+                result_tracker: result_tracker.clone(),
             }),
         )
         // Oracle API routes (work verification, proof generation, challenges)
@@ -139,6 +166,15 @@ async fn main() -> Result<()> {
                 aggregator.clone(),
                 project_manager.clone(),
             )),
+        )
+        // Reputation API routes (monitoring & governance)
+        .nest(
+            "/reputation",
+            create_reputation_router(ReputationApiState {
+                reputation_manager: reputation_manager.clone(),
+                result_tracker: result_tracker.clone(),
+                admin_api_key: std::env::var("CHERT_ADMIN_API_KEY").ok(),
+            }),
         )
         // Health check
         .route("/health", get(|| async { "OK" }))

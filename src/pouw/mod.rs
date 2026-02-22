@@ -13,11 +13,17 @@
 //! ├── challenge.rs      - Challenge/response structures for PoUW
 //! ├── task_selection.rs - Smart task assignment based on hardware/preferences
 //! ├── models/           - Data models (work units, proofs)
-//! └── boinc/            - BOINC-specific integration
-//!     ├── client.rs     - XML-RPC client
-//!     ├── proxy.rs      - BOINC proxy server
-//!     ├── project.rs    - Project management
-//!     └── xml/          - XML processing
+//! ├── boinc/            - BOINC-specific integration
+//! │   ├── client.rs     - XML-RPC client
+//! │   ├── proxy.rs      - BOINC proxy server
+//! │   ├── project.rs    - Project management
+//! │   └── xml/          - XML processing
+//! └── nuw/              - NUW-specific oracle logic
+//!     ├── mod.rs        - Module exports and shared types
+//!     ├── priority_queue.rs - FIFO impact-based queueing
+//!     ├── distributor.rs   - Quad-send BFT work distribution
+//!     ├── obfuscation.rs   - Task envelopes + optional blinding
+//!     └── oracle.rs        - NUW work orchestration
 //! ```
 //!
 //! ## Task Selection System
@@ -28,16 +34,19 @@
 //! - User preference management
 //! - Ranked recommendations
 //!
-//! ## Future Providers
+//! ## NUW System
 //!
-//! The architecture supports adding new PoUW providers:
-//! - `fah/` - Folding@Home integration (planned)
-//! - `nuw/` - Network Utility Work (planned)
+//! The NUW (Network Utility Work) module provides:
+//! - Priority-based task queueing (P0/P1/P2 buckets)
+//! - Quad-send BFT work distribution (4 miners, 3-of-4 consensus)
+//! - Task obfuscation and envelopes for anti-gaming
+//! - Reward calculation and finalization
 
 pub mod aggregator;
 pub mod boinc;
 pub mod challenge;
 pub mod models;
+pub mod nuw;
 pub mod oracle;
 pub mod task_selection;
 
@@ -56,4 +65,14 @@ pub use task_selection::{
     CompatibilityResult, CpuArchitecture, CpuInfo, GpuInfo, GpuTier, GpuVendor, MinerPreferences,
     MinerProfile, OperatingSystem, ProjectRequirements, ScienceArea, TaskRecommendation,
     TaskSelector, check_compatibility, create_default_project_requirements,
+};
+
+// Re-export NUW types
+pub use nuw::{
+    ConsensusAction, ConsensusResult, MinerInfo, MinerRegistry, MinerTier, NuwSolution, NuwTask,
+    TaskPriority, TaskType,
+    Distributor, QuadAssignment, QuadStatus,
+    EnvelopeMode, Obfuscator, TaskEnvelope,
+    NuwOracle as NuwWorkOracle,
+    PriorityBucket, PriorityQueue, QueuedTask,
 };

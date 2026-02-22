@@ -1,0 +1,51 @@
+version: "3.8"
+
+# Development setup - single node TigerBeetle + Oracle
+# Run with: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # TigerBeetle single node (dev mode)
+  tigerbeetle:
+    image: tigerbeetle/tigerbeetle:v0.16.1
+    command: 
+      - "format"
+      - "--cluster=0"
+      - "--replica=0"
+      - "--addresses=0.0.0.0:3001"
+    volumes:
+      - tb_data:/var/lib/tigerbeetle
+    ports:
+      - "3001:3001"
+    networks:
+      - nuw_network
+    restart: on-failure
+
+  # Oracle service (runs locally with cargo for dev)
+  oracle:
+    image: rust:1.75-slim
+    working_dir: /app
+    command: bash -c "cargo run --package silica-oracle"
+    volumes:
+      - ..:/app
+      - cargo_cache:/usr/local/cargo
+    environment:
+      - CHERT_TIGERBEETLE_ADDRESSES=tigerbeetle:3001
+      - CHERT_TIGERBEETLE_CLUSTER_ID=0
+      - CHERT_LOG_LEVEL=debug
+      - RUST_LOG=debug
+    ports:
+      - "8765:8765"
+    networks:
+      - nuw_network
+    depends_on:
+      tigerbeetle:
+        condition: service_started
+    restart: on-failure
+
+networks:
+  nuw_network:
+    driver: bridge
+
+volumes:
+  tb_data:
+  cargo_cache:

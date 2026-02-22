@@ -33,6 +33,27 @@ pub struct ExtractedResult {
     pub cpu_time: f64,
     pub exit_status: i32,
     pub submitted_at: DateTime<Utc>,
+    /// Hash of result content for replay detection
+    pub result_hash: Option<String>,
+    /// Raw result data (if extractable)
+    pub result_data: Option<Vec<u8>>,
+}
+
+/// BOINC validation result from scheduler reply
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+    /// Result name that was validated
+    pub result_name: String,
+    /// Work unit name
+    pub wu_name: String,
+    /// Whether the result was validated successfully
+    pub validated: bool,
+    /// Credits granted by BOINC
+    pub credits_granted: f64,
+    /// Validation time
+    pub validated_at: DateTime<Utc>,
+    /// Error message if validation failed
+    pub error_message: Option<String>,
 }
 
 /// Replace element text values in an XML string.
@@ -437,6 +458,8 @@ impl BoincXmlProcessor {
                             cpu_time: 0.0,
                             exit_status: 0,
                             submitted_at: Utc::now(),
+                            result_hash: None,
+                            result_data: None,
                         });
                     } else if in_result {
                         current_element = tag_name.to_string();
@@ -527,9 +550,96 @@ impl BoincXmlProcessor {
 
         Ok(String::new())
     }
+    
+    /// Extract validation results from BOINC scheduler reply
+    /// BOINC sends validation info in <result_ack> or credit messages
+    pub fn extract_validation_results(&self, xml: &str) -> Result<Vec<ValidationResult>> {
+        let mut reader = Reader::from_str(xml);
+        let mut buf = Vec::new();
+        let mut results = Vec::new();
+        
+        let mut in_result_ack = false;
+        let mut in_credit = false;
+        let mut current_result_name = String::new();
+        let mut current_wu_name = String::new();
+        let mut current_credits = 0.0;
+        let mut current_element = String::new();
+        
+        loop {
+            match reader.read_event_into(&mut buf)? {
+                Event::Start(e) => {
+                    let name_bytes = e.name();
+                    let name = name_bytes.as_ref();
+                    let tag_name = std::str::from_utf8(name).unwrap_or_default();
+                    
+                    if tag_name == "result_ack" {
+                        in_result_ack = true;
+                    } else if tag_name == "credit" {
+                        in_credit = true;
+                    } else if in_result_ack {
+                        current_element = tag_name.to_string();
+                    }
+                }
+                Event::Text(t) => {
+                    let text = std::str::from_utf8(&t)
+                        .map_err(|e| anyhow::anyhow!("Invalid UTF-8: {}", e))?;
+                    
+                    if in_result_ack {
+                        match current_element.as_str() {
+                            "name" => current_result_name = text.to_string(),
+                            "wu_name" => current_wu_name = text.to_string(),
+                            _ => {}
+                        }
+                    } else if in_credit {
+                        // Credit value for the last acknowledged result
+                        if let Ok(credits) = text.parse() {
+                            current_credits = credits;
+                        }
+                    }
+                }
+                Event::End(e) => {
+                    let name_bytes = e.name();
+                    let name = name_bytes.as_ref();
+                    let tag_name = std::str::from_utf8(name).unwrap_or_default();
+                    
+                    if tag_name == "result_ack" {
+                        // Create validation result for this acknowledgement
+                        if !current_result_name.is_empty() {
+                            results.push(ValidationResult {
+                                result_name: current_result_name.clone(),
+                                wu_name: current_wu_name.clone(),
+                                validated: true,
+                                credits_granted: current_credits,
+                                validated_at: Utc::now(),
+                                error_message: None,
+                            });
+                        }
+                        in_result_ack = false;
+                        current_result_name.clear();
+                        current_wu_name.clear();
+                        current_credits = 0.0;
+                    } else if tag_name == "credit" {
+                        in_credit = false;
+                    } else if in_result_ack {
+                        current_element.clear();
+                    }
+                }
+                Event::Eof => break,
+                _ => {}
+            }
+            buf.clear();
+        }
+        
+        Ok(results)
+    }
+    
+    /// Get validation results (must call extract_validation_results first)
+    pub fn get_validation_results(&self) -> Vec<ValidationResult> {
+        // For now, validation results are not cached
+        // Call extract_validation_results directly
+        Vec::new()
+    }
 }
-
-#[cfg(test)]
 mod tests {
     use super::*;
 

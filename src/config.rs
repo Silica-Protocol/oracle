@@ -15,8 +15,12 @@ pub struct PoiConfig {
     pub boinc: BoincConfig,
     /// Oracle configuration
     pub oracle: OracleConfig,
+    /// Database configuration
+    pub database: DatabaseConfig,
     /// Logging configuration
     pub logging: LoggingConfig,
+    /// Reputation system configuration
+    pub reputation: ReputationConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +89,76 @@ pub struct LoggingConfig {
     pub log_requests: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseConfig {
+    /// TigerBeetle cluster addresses (comma-separated)
+    pub tigerbeetle_addresses: String,
+    /// TigerBeetle cluster ID
+    pub tigerbeetle_cluster_id: u32,
+    /// PostgreSQL connection string
+    pub postgres_url: String,
+    /// Enable PostgreSQL (if false, uses in-memory fallback)
+    pub postgres_enabled: bool,
+}
+
+/// Configuration for the reputation/anti-gaming system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReputationConfig {
+    /// Points awarded per successful submission
+    pub good_behavior_reward: u32,
+    /// Score below which user is restricted (lower priority tasks)
+    pub restricted_threshold: i32,
+    /// Score below which user is temporarily banned
+    pub temp_ban_threshold: i32,
+    /// Days for temp ban duration
+    pub temp_ban_days: u32,
+    /// Score below which user is permanently banned
+    pub perm_ban_threshold: i32,
+    /// Days before a slash decays (forgiveness period)
+    pub slash_decay_days: u32,
+    /// Secret key for task ID obfuscation (loaded from env)
+    pub obfuscation_secret: String,
+}
+
+impl Default for ReputationConfig {
+    fn default() -> Self {
+        Self {
+            good_behavior_reward: 1,
+            restricted_threshold: -50,
+            temp_ban_threshold: -100,
+            temp_ban_days: 30,
+            perm_ban_threshold: -200,
+            slash_decay_days: 90,
+            obfuscation_secret: String::new(), // Must be set via environment
+        }
+    }
+}
+
+impl ReputationConfig {
+    /// Convert to ReputationThresholds for use by ReputationManager
+    pub fn to_thresholds(&self) -> crate::reputation::ReputationThresholds {
+        crate::reputation::ReputationThresholds {
+            good_behavior_reward: self.good_behavior_reward,
+            restricted_threshold: self.restricted_threshold,
+            temp_ban_threshold: self.temp_ban_threshold,
+            temp_ban_days: self.temp_ban_days,
+            perm_ban_threshold: self.perm_ban_threshold,
+            slash_decay_days: self.slash_decay_days,
+        }
+    }
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            tigerbeetle_addresses: "127.0.0.1:3001".to_string(),
+            tigerbeetle_cluster_id: 0,
+            postgres_url: "postgresql://localhost:5432/nuw_oracle".to_string(),
+            postgres_enabled: false,
+        }
+    }
+}
+
 impl Default for PoiConfig {
     fn default() -> Self {
         Self {
@@ -110,11 +184,13 @@ impl Default for PoiConfig {
                 api_key: "".to_string(), // MUST be configured
                 timeout_secs: 30,
             },
+            database: DatabaseConfig::default(),
             logging: LoggingConfig {
                 level: "info".to_string(),
                 sanitize_logs: true,
                 log_requests: false, // Disabled by default for security
             },
+            reputation: ReputationConfig::default(),
         }
     }
 }
@@ -180,6 +256,27 @@ impl PoiConfig {
         config.oracle.api_key = env::var("CHERT_ORACLE_API_KEY")
             .context("CHERT_ORACLE_API_KEY environment variable is required")?;
 
+        // Database configuration
+        if let Ok(addresses) = env::var("CHERT_TIGERBEETLE_ADDRESSES") {
+            config.database.tigerbeetle_addresses = addresses;
+        }
+
+        if let Ok(cluster_id) = env::var("CHERT_TIGERBEETLE_CLUSTER_ID") {
+            config.database.tigerbeetle_cluster_id = cluster_id
+                .parse()
+                .context("Invalid CHERT_TIGERBEETLE_CLUSTER_ID value")?;
+        }
+
+        if let Ok(url) = env::var("CHERT_POSTGRES_URL") {
+            config.database.postgres_url = url;
+        }
+
+        if let Ok(enabled) = env::var("CHERT_POSTGRES_ENABLED") {
+            config.database.postgres_enabled = enabled
+                .parse()
+                .context("Invalid CHERT_POSTGRES_ENABLED value")?;
+        }
+
         // Logging configuration
         if let Ok(log_level) = env::var("CHERT_LOG_LEVEL") {
             config.logging.level = log_level;
@@ -190,6 +287,50 @@ impl PoiConfig {
                 .parse()
                 .context("Invalid CHERT_SANITIZE_LOGS value")?;
         }
+
+        // Reputation configuration
+        if let Ok(reward) = env::var("CHERT_REPUTATION_GOOD_BEHAVIOR_REWARD") {
+            config.reputation.good_behavior_reward = reward
+                .parse()
+                .context("Invalid CHERT_REPUTATION_GOOD_BEHAVIOR_REWARD value")?;
+        }
+
+        if let Ok(threshold) = env::var("CHERT_REPUTATION_RESTRICTED_THRESHOLD") {
+            config.reputation.restricted_threshold = threshold
+                .parse()
+                .context("Invalid CHERT_REPUTATION_RESTRICTED_THRESHOLD value")?;
+        }
+
+        if let Ok(threshold) = env::var("CHERT_REPUTATION_TEMP_BAN_THRESHOLD") {
+            config.reputation.temp_ban_threshold = threshold
+                .parse()
+                .context("Invalid CHERT_REPUTATION_TEMP_BAN_THRESHOLD value")?;
+        }
+
+        if let Ok(days) = env::var("CHERT_REPUTATION_TEMP_BAN_DAYS") {
+            config.reputation.temp_ban_days = days
+                .parse()
+                .context("Invalid CHERT_REPUTATION_TEMP_BAN_DAYS value")?;
+        }
+
+        if let Ok(threshold) = env::var("CHERT_REPUTATION_PERM_BAN_THRESHOLD") {
+            config.reputation.perm_ban_threshold = threshold
+                .parse()
+                .context("Invalid CHERT_REPUTATION_PERM_BAN_THRESHOLD value")?;
+        }
+
+        if let Ok(days) = env::var("CHERT_REPUTATION_SLASH_DECAY_DAYS") {
+            config.reputation.slash_decay_days = days
+                .parse()
+                .context("Invalid CHERT_REPUTATION_SLASH_DECAY_DAYS value")?;
+        }
+
+        // Task obfuscation secret (required for anti-gaming)
+        config.reputation.obfuscation_secret = env::var("CHERT_OBFUSCATION_SECRET")
+            .unwrap_or_else(|_| {
+                warn!("CHERT_OBFUSCATION_SECRET not set, using default (not recommended for production)");
+                "default_obfuscation_secret_change_in_production".to_string()
+            });
 
         // Validate configuration
         config.validate()?;

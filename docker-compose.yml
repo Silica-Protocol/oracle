@@ -1,0 +1,113 @@
+version: "3.8"
+
+services:
+  # TigerBeetle cluster (3 replicas for production-like setup)
+  tigerbeetle-1:
+    image: tigerbeetle/tigerbeetle:v0.16.1
+    command: 
+      - "format"
+      - "--cluster=0"
+      - "--replica=0"
+      - "--addresses=0.0.0.0:3001, tigerbeetle-2:3001,tigerbeetle-3:3001"
+    volumes:
+      - tb_1_data:/var/lib/tigerbeetle
+    ports:
+      - "3001:3001"
+    networks:
+      - nuw_network
+    restart: unless-stopped
+
+  tigerbeetle-2:
+    image: tigerbeetle/tigerbeetle:v0.16.1
+    command: 
+      - "start"
+      - "--cluster=0"
+      - "--replica=1"
+      - "--addresses=0.0.0.0:3001,tigerbeetle-3:3001"
+      - "--peers=tigerbeetle-1:3001,tigerbeetle-3:3001"
+    volumes:
+      - tb_2_data:/var/lib/tigerbeetle
+    networks:
+      - nuw_network
+    depends_on:
+      - tigerbeetle-1
+    restart: unless-stopped
+
+  tigerbeetle-3:
+    image: tigerbeetle/tigerbeetle:v0.16.1
+    command: 
+      - "start"
+      - "--cluster=0"
+      - "--replica=2"
+      - "--addresses=0.0.0.0:3001"
+      - "--peers=tigerbeetle-1:3001,tigerbeetle-2:3001"
+    volumes:
+      - tb_3_data:/var/lib/tigerbeetle
+    networks:
+      - nuw_network
+    depends_on:
+      - tigerbeetle-1
+      - tigerbeetle-2
+    restart: unless-stopped
+
+  # PostgreSQL for task/miner/reward persistence
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=nuw
+      - POSTGRES_PASSWORD=nuw_password
+      - POSTGRES_DB=nuw_oracle
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - nuw_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuw -d nuw_oracle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Oracle service
+  oracle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8765:8765"
+      - "8766:8766"
+    environment:
+      - CHERT_TIGERBEETLE_ADDRESSES=tigerbeetle-1:3001,tigerbeetle-2:3001,tigerbeetle-3:3001
+      - CHERT_TIGERBEETLE_CLUSTER_ID=0
+      - CHERT_POSTGRES_URL=postgresql://nuw:nuw_password@postgres:5432/nuw_oracle
+      - CHERT_POSTGRES_ENABLED=true
+      - CHERT_LOG_LEVEL=info
+      - RUST_LOG=info
+    networks:
+      - nuw_network
+    depends_on:
+      tigerbeetle-1:
+        condition: service_started
+      tigerbeetle-2:
+        condition: service_started
+      tigerbeetle-3:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - oracle_data:/app/data
+
+networks:
+  nuw_network:
+    driver: bridge
+
+volumes:
+  tb_1_data:
+  tb_2_data:
+  tb_3_data:
+  postgres_data:
+  oracle_data:
