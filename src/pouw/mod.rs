@@ -12,6 +12,7 @@
 //! ├── aggregator.rs     - Aggregates work from multiple sources
 //! ├── challenge.rs      - Challenge/response structures for PoUW
 //! ├── task_selection.rs - Smart task assignment based on hardware/preferences
+//! ├── demand.rs         - NUW demand tracking for miner CPU management
 //! ├── models/           - Data models (work units, proofs)
 //! ├── boinc/            - BOINC-specific integration
 //! │   ├── client.rs     - XML-RPC client
@@ -41,10 +42,19 @@
 //! - Quad-send BFT work distribution (4 miners, 3-of-4 consensus)
 //! - Task obfuscation and envelopes for anti-gaming
 //! - Reward calculation and finalization
+//!
+//! ## Demand Tracking
+//!
+//! The demand tracker helps miners manage CPU allocation between BOINC and NUW:
+//! - Real-time queue depth monitoring
+//! - Rate calculations (tasks/min in/out)
+//! - Saturation level (0-100%)
+//! - Recommendations: low/medium/high/critical
 
 pub mod aggregator;
 pub mod boinc;
 pub mod challenge;
+pub mod demand;
 pub mod models;
 pub mod nuw;
 pub mod oracle;
@@ -75,4 +85,11 @@ pub use nuw::{
     EnvelopeMode, Obfuscator, TaskEnvelope,
     NuwOracle as NuwWorkOracle,
     PriorityBucket, PriorityQueue, QueuedTask,
+};
+
+// Re-export demand tracking types
+pub use demand::{
+    DemandTracker, DemandSnapshot, DemandLevel,
+    CurrentDemand, BucketDemand, HistoricalDemand,
+    TimeWindow, WindowMetrics, BucketMetrics,
 };

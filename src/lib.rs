@@ -109,6 +109,12 @@ pub use pouw::boinc::result_tracker::{
     SuspiciousActivity, SuspiciousActivityType, AdminDecision,
 };
 
+// Re-export demand tracking types
+pub use pouw::{
+    DemandTracker, DemandSnapshot, DemandLevel,
+    CurrentDemand, BucketDemand, HistoricalDemand,
+};
+
 // Re-export protocol types
 pub use protocol::{
     ProtocolClient, ProofGenerator, ProofSubmission,

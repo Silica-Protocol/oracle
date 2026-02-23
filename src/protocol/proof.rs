@@ -188,7 +188,7 @@ impl ProofGenerator {
         }
     }
 
-    pub fn verify_proof(&self, proof: &ProofSubmission, public_key: &[u8]) -> Result<bool> {
+    pub fn verify_proof(&self, proof: &ProofSubmission, _public_key: &[u8]) -> Result<bool> {
         if proof.signature.is_empty() {
             return Ok(false);
         }

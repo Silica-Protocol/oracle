@@ -9,6 +9,7 @@
 //!   GET /preferences?user=<user> -> Get miner project preferences
 //!   POST /preferences -> Update miner project preferences
 //!   GET /recommendations?user=<user> -> Get ranked project recommendations
+//!   GET /demand -> Get NUW demand snapshot (for CPU management)
 
 use axum::{
     Json, Router,
@@ -29,6 +30,7 @@ use crate::pouw::task_selection::{
     CpuArchitecture, CpuInfo, GpuInfo, GpuVendor, MinerPreferences as TaskMinerPreferences,
     MinerProfile, OperatingSystem, ScienceArea, TaskSelector, create_default_project_requirements,
 };
+use crate::pouw::{DemandTracker, DemandSnapshot};
 
 #[derive(Debug, Deserialize)]
 pub struct GetJobQuery {
@@ -71,6 +73,7 @@ pub struct MinerApiState {
     pub aggregator: Arc<RwLock<PoUWAggregator>>,
     pub project_manager: Arc<RwLock<ProjectManager>>,
     pub task_selector: Arc<RwLock<TaskSelector>>,
+    pub demand_tracker: Arc<RwLock<DemandTracker>>,
 }
 
 impl MinerApiState {
@@ -88,6 +91,7 @@ impl MinerApiState {
             aggregator,
             project_manager,
             task_selector: Arc::new(RwLock::new(task_selector)),
+            demand_tracker: Arc::new(RwLock::new(DemandTracker::new())),
         }
     }
 
@@ -101,6 +105,22 @@ impl MinerApiState {
             aggregator,
             project_manager,
             task_selector: Arc::new(RwLock::new(task_selector)),
+            demand_tracker: Arc::new(RwLock::new(DemandTracker::new())),
+        }
+    }
+    
+    /// Create with demand tracker
+    pub fn with_demand_tracker(
+        aggregator: Arc<RwLock<PoUWAggregator>>,
+        project_manager: Arc<RwLock<ProjectManager>>,
+        task_selector: TaskSelector,
+        demand_tracker: DemandTracker,
+    ) -> Self {
+        Self {
+            aggregator,
+            project_manager,
+            task_selector: Arc::new(RwLock::new(task_selector)),
+            demand_tracker: Arc::new(RwLock::new(demand_tracker)),
         }
     }
 }
@@ -593,6 +613,7 @@ pub fn create_router(state: MinerApiState) -> Router {
         .route("/preferences", get(get_preferences))
         .route("/preferences", post(update_preferences))
         .route("/recommendations", get(get_recommendations))
+        .route("/demand", get(get_demand))
         .with_state(state)
 }
 
@@ -718,4 +739,27 @@ pub async fn submit_work(
             })
         }
     }
+}
+
+/// Get NUW demand snapshot for miner CPU management
+/// 
+/// Miners use this to decide how much CPU to allocate to BOINC vs NUW:
+/// - low saturation (0-25%): Safe to run BOINC at 80% CPU
+/// - medium saturation (26-50%): Scale back BOINC to 50% CPU
+/// - high saturation (51-75%): NUW priority, BOINC at 20% CPU
+/// - critical saturation (76-100%): Stop BOINC, NUW only
+pub async fn get_demand(
+    State(state): State<MinerApiState>,
+) -> Json<DemandSnapshot> {
+    let demand_tracker = state.demand_tracker.read().await;
+    let snapshot = demand_tracker.get_demand_snapshot().await;
+    
+    info!(
+        saturation = snapshot.saturation,
+        recommendation = ?snapshot.recommendation,
+        nuw_depth = snapshot.current.p0.depth + snapshot.current.p1.depth + snapshot.current.p2.depth,
+        "Demand snapshot requested"
+    );
+    
+    Json(snapshot)
 }
