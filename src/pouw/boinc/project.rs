@@ -98,7 +98,7 @@ pub struct ProjectManager {
 impl ProjectManager {
     pub fn new() -> Self {
         Self {
-            boinc_client: tokio::sync::RwLock::new(BoincCompatClient::new(false)), // Use API mode
+            boinc_client: tokio::sync::RwLock::new(BoincCompatClient::new(true)), // Use client mode
             crypto: CryptoEngine::new(),
             projects: RwLock::new(HashMap::new()),
             work_assignments: RwLock::new(HashMap::new()),

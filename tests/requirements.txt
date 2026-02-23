@@ -1,0 +1,20 @@
+# Oracle E2E Test Dependencies
+
+# Testing framework
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pytest-xdist>=3.5.0
+pytest-timeout>=2.3.1
+
+# HTTP client
+aiohttp>=3.9.0
+
+# Configuration parsing
+tomli>=2.0.0
+tomli-w>=1.0.0
+
+# Async support
+anyio>=4.0.0
+
+# Logging
+structlog>=24.0.0

@@ -7,6 +7,7 @@ pub mod middleware;
 pub mod miner;
 pub mod nuw;
 pub mod oracle;
+pub mod protocol;
 pub mod reputation;
 pub mod web;
 
@@ -18,5 +19,6 @@ pub use middleware::{
 pub use miner::{MinerApiState, create_router as create_miner_router};
 pub use nuw::{NuwApiState, create_router as create_nuw_router};
 pub use oracle::{OracleApiState, create_router as create_oracle_router};
+pub use protocol::{ProtocolApiState, create_protocol_router};
 pub use reputation::{ReputationApiState, create_reputation_router};
 pub use web::{WebApiState, create_router as create_web_router};

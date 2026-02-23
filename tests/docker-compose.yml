@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # TigerBeetle - Financial accounting database
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
+    container_name: silica-tigerbeetle
+    ports:
+      - "3000:3000"
+    environment:
+      - TB_CLUSTER_ID=0
+      - TB_REPLICA_ADDRESSES=0.0.0.0:3000
+    volumes:
+      - tigerbeetle_data:/var/lib/tigerbeetle
+    healthcheck:
+      test: ["CMD", "tigerbeetle", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - silica-test
+
+  # PostgreSQL - Persistent storage
+  postgres:
+    image: postgres:16-alpine
+    container_name: silica-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=silica
+      - POSTGRES_PASSWORD=silica_test_password
+      - POSTGRES_DB=nuw_oracle
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U silica -d nuw_oracle"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - silica-test
+
+  # Test runner
+  test-runner:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile
+    container_name: silica-test-runner
+    depends_on:
+      tigerbeetle:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - CHERT_TIGERBEETLE_ADDRESSES=tigerbeetle:3000
+      - CHERT_TIGERBEETLE_CLUSTER_ID=0
+      - CHERT_POSTGRES_URL=postgresql://silica:silica_test_password@postgres:5432/nuw_oracle
+      - CHERT_POSTGRES_ENABLED=true
+      - CHERT_BOINC_MILKYWAY_AUTHENTICATOR=testauthfore2etests12345
+      - CHERT_ORACLE_API_KEY=testoracleapikey12345678901234567890
+      - CHERT_ADMIN_API_KEY=testadminkey12345678901234567890
+      - CHERT_API_KEYS=testapikey123456789012345678901234567890
+      - CHERT_OBFUSCATION_SECRET=test_obfuscation_secret_key
+      - RUST_LOG=info
+      - TIGERBEETLE_PATH=/usr/local/bin/tigerbeetle
+    volumes:
+      - ..:/app
+      - cargo-cache:/root/.cargo
+      - target-cache:/app/target
+    networks:
+      - silica-test
+    command: ["pytest", "tests/e2e/", "-v", "--tb=short"]
+
+networks:
+  silica-test:
+    driver: bridge
+
+volumes:
+  tigerbeetle_data:
+  postgres_data:
+  cargo-cache:
+  target-cache:

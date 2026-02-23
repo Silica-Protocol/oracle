@@ -374,12 +374,12 @@ pub async fn get_stats(
 /// Create the reputation API router
 pub fn create_reputation_router(state: ReputationApiState) -> Router {
     Router::new()
-        .route("/:user_id", get(get_reputation))
-        .route("/:user_id/history", get(get_slash_history))
-        .route("/:user_id/results", get(get_user_results))
+        .route("/{user_id}", get(get_reputation))
+        .route("/{user_id}/history", get(get_slash_history))
+        .route("/{user_id}/results", get(get_user_results))
         .route("/thresholds", get(get_thresholds).put(update_thresholds))
         .route("/pending-reviews", get(get_pending_reviews))
-        .route("/review/:activity_id", post(resolve_activity))
+        .route("/review/{activity_id}", post(resolve_activity))
         .route("/stats", get(get_stats))
         .with_state(state)
 }

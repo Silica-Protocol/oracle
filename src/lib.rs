@@ -29,7 +29,13 @@
 //! │   ├── oracle.rs  - Oracle API (verify, proof, challenge)
 //! │   ├── web.rs     - Web interface
 //! │   ├── miner.rs   - Miner integration (with smart task selection)
+//! │   ├── protocol.rs - Protocol integration API
 //! │   └── http.rs    - Secure HTTP client
+//! ├── protocol/      - Silica protocol integration
+//! │   ├── client.rs  - RPC client for protocol communication
+//! │   ├── epoch.rs   - Epoch event listener
+//! │   ├── proof.rs   - Proof generation and signing
+//! │   └── types.rs   - Shared types
 //! ├── reputation/    - Anti-gaming reputation system
 //! │   ├── score.rs   - Reputation scores & thresholds
 //! │   ├── slash.rs   - Slashing for malicious actions
@@ -42,6 +48,7 @@ pub mod config;
 pub mod crypto;
 pub mod database;
 pub mod pouw;
+pub mod protocol;
 pub mod reputation;
 pub mod tigerbeetle;
 
@@ -76,6 +83,7 @@ pub use pouw::task_selection::{
 pub use api::{
     HttpSecurityConfig, MinerApiState, OracleApiState, SecureHttpClient, SecurityMiddlewareConfig,
     SecurityState, WebApiState, NuwApiState, create_nuw_router,
+    ProtocolApiState, create_protocol_router,
 };
 
 // Re-export TigerBeetle types
@@ -99,4 +107,12 @@ pub use pouw::boinc::xml::{
 pub use pouw::boinc::result_tracker::{
     ResultTracker, ResultRecord, ResultStatus, SubmissionResult,
     SuspiciousActivity, SuspiciousActivityType, AdminDecision,
+};
+
+// Re-export protocol types
+pub use protocol::{
+    ProtocolClient, ProofGenerator, ProofSubmission,
+    ClaimRequest, ClaimResponse, ConsensusInfo, EpochEvent,
+    MinerContribution, PriorityBucket, ProofData, ProofType,
+    ProtocolTask, TaskPayload, TaskMetadata, NuwTaskType,
 };

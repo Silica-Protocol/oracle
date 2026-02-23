@@ -11,16 +11,22 @@ from __future__ import annotations
 
 import pytest
 
+# Add oracle to path
+import sys
+from pathlib import Path
+oracle_root = Path(__file__).resolve().parents[2]
+if str(oracle_root) not in sys.path:
+    sys.path.insert(0, str(oracle_root))
+
 from tests.lib.client import OracleClient
-from tests.lib.cluster import OracleCluster
 
 
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_reputation_initial_score(oracle_client: OracleClient) -> None:
+async def test_reputation_initial_score(standalone_client: OracleClient) -> None:
     """Test that new users start with score 0."""
-    rep = await oracle_client.get_reputation("user_test_initial")
+    rep = await standalone_client.get_reputation("user_test_initial")
     
     assert rep["effective_score"] == 0
     assert rep["eligibility"] == "FullAccess"
@@ -29,9 +35,9 @@ async def test_reputation_initial_score(oracle_client: OracleClient) -> None:
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_eligibility_status_full_access(oracle_client: OracleClient) -> None:
+async def test_eligibility_status_full_access(standalone_client: OracleClient) -> None:
     """Test that users with score >= 0 have full access."""
-    rep = await oracle_client.get_reputation("user_full_access")
+    rep = await standalone_client.get_reputation("user_full_access")
     
     # New user should have full access
     assert rep["effective_score"] >= 0
@@ -47,10 +53,10 @@ async def test_eligibility_status_full_access(oracle_client: OracleClient) -> No
 @pytest.mark.e2e
 @pytest.mark.antigaming
 async def test_reputation_project_metrics_initial(
-    oracle_client: OracleClient,
+    standalone_client: OracleClient,
 ) -> None:
     """Test that project metrics start empty for new users."""
-    rep = await oracle_client.get_reputation("user_metrics_test")
+    rep = await standalone_client.get_reputation("user_metrics_test")
     
     # Should have empty project metrics initially
     metrics = rep.get("project_metrics", [])
@@ -62,9 +68,9 @@ async def test_reputation_project_metrics_initial(
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_thresholds_governance_values(oracle_client: OracleClient) -> None:
+async def test_thresholds_governance_values(standalone_client: OracleClient) -> None:
     """Test that governance thresholds are correctly configured."""
-    thresholds = await oracle_client.get_thresholds()
+    thresholds = await standalone_client.get_thresholds()
     
     # Verify expected defaults
     assert thresholds["good_behavior_reward"] == 1
@@ -78,9 +84,9 @@ async def test_thresholds_governance_values(oracle_client: OracleClient) -> None
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_pending_reviews_structure(oracle_client: OracleClient) -> None:
+async def test_pending_reviews_structure(standalone_client: OracleClient) -> None:
     """Test the structure of pending reviews response."""
-    reviews = await oracle_client.get_pending_reviews()
+    reviews = await standalone_client.get_pending_reviews()
     
     assert "total" in reviews
     assert "activities" in reviews
@@ -91,9 +97,9 @@ async def test_pending_reviews_structure(oracle_client: OracleClient) -> None:
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_slash_history_structure(oracle_client: OracleClient) -> None:
+async def test_slash_history_structure(standalone_client: OracleClient) -> None:
     """Test the structure of slash history response."""
-    history = await oracle_client.get_slash_history("user_slash_test")
+    history = await standalone_client.get_slash_history("user_slash_test")
     
     assert "user_id" in history
     assert "total_slashes" in history
@@ -108,9 +114,9 @@ async def test_slash_history_structure(oracle_client: OracleClient) -> None:
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_user_results_structure(oracle_client: OracleClient) -> None:
+async def test_user_results_structure(standalone_client: OracleClient) -> None:
     """Test the structure of user results response."""
-    results = await oracle_client.get_user_results("user_results_test")
+    results = await standalone_client.get_user_results("user_results_test")
     
     assert "user_id" in results
     assert "total_results" in results
@@ -126,9 +132,9 @@ async def test_user_results_structure(oracle_client: OracleClient) -> None:
 @pytest.mark.asyncio
 @pytest.mark.e2e
 @pytest.mark.antigaming
-async def test_stats_structure(oracle_client: OracleClient) -> None:
+async def test_stats_structure(standalone_client: OracleClient) -> None:
     """Test the structure of stats response."""
-    stats = await oracle_client.get_stats()
+    stats = await standalone_client.get_stats()
     
     assert "total_users" in stats
     assert "total_results_tracked" in stats
@@ -145,11 +151,11 @@ async def test_stats_structure(oracle_client: OracleClient) -> None:
 @pytest.mark.e2e
 @pytest.mark.antigaming
 async def test_multiple_users_independent_scores(
-    oracle_client: OracleClient,
+    standalone_client: OracleClient,
 ) -> None:
     """Test that multiple users have independent reputation scores."""
-    rep1 = await oracle_client.get_reputation("user_independent_1")
-    rep2 = await oracle_client.get_reputation("user_independent_2")
+    rep1 = await standalone_client.get_reputation("user_independent_1")
+    rep2 = await standalone_client.get_reputation("user_independent_2")
     
     # Both should start at 0
     assert rep1["effective_score"] == 0
@@ -163,28 +169,28 @@ async def test_multiple_users_independent_scores(
 @pytest.mark.e2e
 @pytest.mark.antigaming
 async def test_reputation_update_via_governance(
-    oracle_client: OracleClient,
+    standalone_client: OracleClient,
 ) -> None:
     """Test updating reputation thresholds via governance."""
     # Get current thresholds
-    original = await oracle_client.get_thresholds()
+    original = await standalone_client.get_thresholds()
     original_reward = original["good_behavior_reward"]
     
     # Update threshold
     new_value = original_reward + 1
-    updated = await oracle_client.update_thresholds(
+    updated = await standalone_client.update_thresholds(
         {"good_behavior_reward": new_value},
-        admin_api_key="test_admin_key_456",
+        admin_api_key="testadminkey12345678901234567890",
     )
     
     assert updated["good_behavior_reward"] == new_value
     
     # Verify persistence
-    current = await oracle_client.get_thresholds()
+    current = await standalone_client.get_thresholds()
     assert current["good_behavior_reward"] == new_value
     
     # Reset for other tests
-    await oracle_client.update_thresholds(
+    await standalone_client.update_thresholds(
         {"good_behavior_reward": original_reward},
-        admin_api_key="test_admin_key_456",
+        admin_api_key="testadminkey12345678901234567890",
     )

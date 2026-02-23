@@ -43,30 +43,29 @@ impl PoUWAggregator {
     pub fn new() -> Self {
         let oracle = Arc::new(RwLock::new(PoUWOracle::new()));
 
-        // Load BOINC configuration and create real BoincClient
-        let config_str =
-            std::fs::read_to_string("config.json").expect("Failed to read config.json");
-        let config: serde_json::Value =
-            serde_json::from_str(&config_str).expect("Failed to parse config.json");
-
         let mut boinc_client = BoincClient::new();
 
-        // Load providers from config and add them to BoincClient
-        if let Some(providers) = config.get("providers").and_then(|p| p.as_array()) {
-            for provider in providers {
-                if let (Some(name), Some(project_url), Some(user_id), Some(auth_key)) = (
-                    provider.get("name").and_then(|n| n.as_str()),
-                    provider.get("project_url").and_then(|u| u.as_str()),
-                    provider.get("user_id").and_then(|i| i.as_str()),
-                    provider.get("auth_key").and_then(|a| a.as_str()),
-                ) {
-                    let project = BoincProject {
-                        name: name.to_string(),
-                        url: project_url.to_string(),
-                        user_id: user_id.to_string(),
-                        authenticator: auth_key.to_string(),
-                    };
-                    boinc_client.add_project(project);
+        // Load BOINC configuration if available (optional for tests)
+        if let Ok(config_str) = std::fs::read_to_string("config.json") {
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_str) {
+                // Load providers from config and add them to BoincClient
+                if let Some(providers) = config.get("providers").and_then(|p| p.as_array()) {
+                    for provider in providers {
+                        if let (Some(name), Some(project_url), Some(user_id), Some(auth_key)) = (
+                            provider.get("name").and_then(|n| n.as_str()),
+                            provider.get("project_url").and_then(|u| u.as_str()),
+                            provider.get("user_id").and_then(|i| i.as_str()),
+                            provider.get("auth_key").and_then(|a| a.as_str()),
+                        ) {
+                            let project = BoincProject {
+                                name: name.to_string(),
+                                url: project_url.to_string(),
+                                user_id: user_id.to_string(),
+                                authenticator: auth_key.to_string(),
+                            };
+                            boinc_client.add_project(project);
+                        }
+                    }
                 }
             }
         }

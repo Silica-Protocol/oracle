@@ -119,12 +119,16 @@ url = "2.4"
 hex = "0.4"
 
 # HTTP server
-axum = { workspace = true }
-tower-http = { workspace = true }
+axum = { workspace = true, features = ["ws"] }
+tower-http = { workspace = true, features = ["trace", "cors", "fs"] }
 
 # Concurrency
 dashmap = { workspace = true }
 rand = { workspace = true }
+futures = "0.3"
+
+# WebSocket for epoch events
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 
 # TigerBeetle - Financial database
 tigerbeetle-unofficial = "0.14"
